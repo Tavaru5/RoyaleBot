@@ -1,0 +1,17 @@
+{
+  "name": "royalebot",
+  "version": "1.0.0",
+  "description": "Discord bot for mini magic tournaments",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "tavaru5",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.7.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.33.0"
+  }
+}
