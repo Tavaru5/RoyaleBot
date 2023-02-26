@@ -6,7 +6,7 @@ const Strings = require('../Strings')
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('start-brew')
-        .setDescription('Send the message for the first week of brewing6')
+        .setDescription('Send the message for the first week of brewing')
         .addStringOption(option =>
 			option
 				.setName('blocks')
@@ -27,10 +27,6 @@ module.exports = {
             let setString
             await mtg.set.where({ block: blocks.join('|') + '|Core Set' })
             .then(sets => {
-                console.log("sets")
-                console.log(sets)
-                console.log("blocks")
-                console.log(blocks)
                 let setsList = sets.filter(
                     set => set.type === 'expansion'
                     && blocks.some(blockName => set.block.toLowerCase() === blockName.toLowerCase())
@@ -49,17 +45,18 @@ module.exports = {
                 scryFallString = '(' + setsList.flatMap(set => 'set:' + set.code).join(' OR ') + ')'
                 setString = setsList.flatMap(set => set.code).join(', ')
             })
-            let lineOne = Strings.BREW_WEEK_TITLE_LINE.replace('$title', titleString)
-            let lineTwo = Strings.BREW_WEEK_SET_LINE.replace('$sets', setString)
+            let tagLine = Strings.TAG_CHANNEL
+            let lineOne = Strings.BREW_WEEK.TEMPLATES.TITLE_LINE(titleString)
+            let lineTwo = Strings.BREW_WEEK.TEMPLATES.SET_LINE(setString)
             let lineThree
             if (bannedCards[0].length == 0) {
-                lineThree = Strings.BREW_WEEK_NO_BANS
+                lineThree = Strings.BREW_WEEK.LITERALS.NO_BANS
             } else {
-                lineThree = Strings.BREW_WEEK_BANS.replace('$bans', bannedCards.join(', '))
+                lineThree = Strings.BREW_WEEK.TEMPLATES.BANS(bannedCards.join(', '))
             }
-            let lineFour = Strings.BREW_WEEK_SCRYFALL_LINE.replace('$scryFallQuery', scryFallString)
-            let lineFive = Strings.SIGN_UP_REACTIONS.replace('$payIn', Strings.PAY_IN_EMOJI).replace('$f2p', Strings.F2P_EMOJI)
-            const message = await interaction.reply({ content: lineOne + lineTwo + lineThree + lineFour + lineFive, fetchReply: true })
+            let lineFour = Strings.BREW_WEEK.TEMPLATES.SCRYFALL_LINE(scryFallString)
+            let lineFive = Strings.TEMPLATES.SIGN_UP_REACTIONS(Strings.PAY_IN_EMOJI, Strings.F2P_EMOJI)
+            const message = await interaction.reply({ content: tagLine + lineOne + lineTwo + lineThree + lineFour + lineFive, fetchReply: true })
             message.react(Strings.PAY_IN_EMOJI)
             message.react(Strings.F2P_EMOJI)
         },
