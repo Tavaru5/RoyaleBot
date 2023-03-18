@@ -57,6 +57,7 @@ module.exports = {
             let lineFour = Strings.BREW_WEEK.TEMPLATES.SCRYFALL_LINE(scryFallString)
             let lineFive = Strings.TEMPLATES.SIGN_UP_REACTIONS(Strings.PAY_IN_EMOJI, Strings.F2P_EMOJI)
             const message = await interaction.reply({ content: tagLine + lineOne + lineTwo + lineThree + lineFour + lineFive, fetchReply: true })
+            await message.pin()
             message.react(Strings.PAY_IN_EMOJI)
             message.react(Strings.F2P_EMOJI)
         },

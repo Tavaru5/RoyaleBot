@@ -1,8 +1,49 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { clientId } = require('../config.json');
 const Strings = require('../Strings')
-const { matchFormatString, FORMAT_PLACEHOLDER } = require('../stringParsing')
+const { FORMAT_PLACEHOLDER } = require('../stringParsing')
+const { getBotMessages, getStandardTitle, getReactions } = require('../messageFiltering')
 
+// Discord flag to not ping people when tagged
+const NOTIF_SUPPRESSION_FLAG = 4096
+
+function makeMatches(users) {
+    let numUsers = users.length
+    let matches
+    if (numUsers > 4) {
+        matches = [[0, 1], [0, 3], [1, 2], [numUsers - 4, numUsers - 1], [numUsers - 2, numUsers - 1], [numUsers - 3, numUsers - 2]]
+        for (let step = 0; step < numUsers; step++) {
+            if (step < numUsers - 4) {
+                matches.push([ step, step + 4 ])
+            }
+            if (step < numUsers - 2) {
+                matches.push([ step, step + 2 ])
+            }
+        }
+    } else if (numUsers == 4) {
+        matches = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+    }
+    matches = matches.flatMap(indices => Strings.MATCHES.TEMPLATES.PAIRING_MESSAGE(users[indices[0]], users[indices[1]]))
+}
+
+async function makeMatchesThread(channel, matches, standardTitle, week) {
+    const matchMessage = await channel.send(Strings.MATCHES.TEMPLATES.MATHCES_THREAD_MESSAGE(
+        Strings.MATCHES.LITERALS.TWO_EMOJI,
+        Strings.MATCHES.LITERALS.ONE_EMOJI,
+        Strings.MATCHES.LITERALS.ZERO_EMOJI,
+        Strings.MATCHES.LITERALS.TIE_EMOJI,
+    ))
+    const matchThread = await matchMessage.startThread({
+        name: Strings.MATCHES.TEMPLATES.MATCHES_THREAD_TITLE(standardTitle, week),
+    })
+    await matchMessage.pin()
+    for (const match of matches) {
+        const singleMatch = await matchThread.send({ content: match, flags: [NOTIF_SUPPRESSION_FLAG] })
+        singleMatch.react(Strings.MATCHES.LITERALS.TWO_EMOJI)
+            .then(() => singleMatch.react(Strings.MATCHES.LITERALS.ONE_EMOJI))
+            .then(() => singleMatch.react(Strings.MATCHES.LITERALS.ZERO_EMOJI))
+            .then(() => singleMatch.react(Strings.MATCHES.LITERALS.TIE_EMOJI))
+    }
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,41 +56,22 @@ module.exports = {
 				.setRequired(true)
         ),
         async execute(interaction) {
-            let botMessages;
             let failureReason = ''
             const weekOne = interaction.options.getBoolean('weekone')
-            await interaction.channel.messages.fetch()
-                .then(messages =>
-                    botMessages = Array.from(messages.filter(m => m.author.id === clientId).values())
-                )
-            // To-do: Handle failure of no previous standard title
-            let standardTitle
-            botMessages.find(message => {
-                standardTitle = matchFormatString(message.content, Strings.BREW_WEEK.TEMPLATES.TITLE_LINE(FORMAT_PLACEHOLDER))
-                if (standardTitle.length > 0) {
-                    return true
-                }
-                return false
-            })
 
-            // Get the users from their reactions to the previous sign up message
-            // To-do: Handle failure of no previous reactions (or incorrect ones)
-            let reactionEmojis
-            let buyIns
-            let f2ps
-            let reactions = botMessages.find(message => {
-                reactionEmojis = matchFormatString(message.content, Strings.TEMPLATES.SIGN_UP_REACTIONS(FORMAT_PLACEHOLDER, FORMAT_PLACEHOLDER))
-                return (reactionEmojis.length === 2)
-            }).reactions.cache
-            await reactions.get(reactionEmojis[0]).users.fetch()
-            .then(users =>
-                buyIns = users
-            )
-            await reactions.get(reactionEmojis[1]).users.fetch()
-            .then(users =>
-                f2ps = users
-            )
-            let usersForBracket = Array.from(buyIns.values()).concat(Array.from(f2ps.values())).filter(user => user.id !== clientId)
+            let botMessages = await getBotMessages(interaction)
+            let standardTitle = getStandardTitle(botMessages)
+
+            let reactions = await getReactions(botMessages, Strings.TEMPLATES.SIGN_UP_REACTIONS(FORMAT_PLACEHOLDER, FORMAT_PLACEHOLDER))
+            let usersForBracket = reactions[0][1].concat(reactions[1][1])
+
+            // Parse the week one stuff for adds/drops if it's week two
+            if (!weekOne) {
+                let dropAdds = getReactions(botMessages, Strings.MATCHES.TEMPLATES.DROPS_MESSAGE(FORMAT_PLACEHOLDER, FORMAT_PLACEHOLDER))
+                if (dropAdds.length == 2) {
+                    usersForBracket = usersForBracket.filter(user => !dropAdds[0].some(drop => drop.id === user.id)).concat(dropAdds[1])
+                }
+            }
 
             // Shuffle the array (for matchmaking purposes)
             for (let i = usersForBracket.length - 1; i > 0; i--) {
@@ -61,58 +83,35 @@ module.exports = {
             let numUsers = usersForBracket.length
             let matches
             if (numUsers > 4) {
-                matches = [[0, 1], [0, 3], [1, 2], [numUsers - 4, numUsers - 1], [numUsers - 2, numUsers - 1], [numUsers - 3, numUsers - 2]]
-                for (let step = 0; step < numUsers; step++) {
-                    if (step < numUsers - 4) {
-                        matches.push([ step, step + 4 ])
-                    }
-                    if (step < numUsers - 2) {
-                        matches.push([ step, step + 2 ])
-                    }
-                }
-            } else if (numUsers == 4) {
-                matches = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+                matches = makeMatches(usersForBracket)
             } else {
                 failureReason = Strings.FAILURES.NOT_ENOUGH_SIGNUPS
             }
-            matches = matches.flatMap(indices => Strings.MATCHES.TEMPLATES.PAIRING_MESSAGE(usersForBracket[indices[0]], usersForBracket[indices[1]]))
 
             if (failureReason.length > 0) {
                 interaction.reply(Strings.COMMAND_FAILURE + failureReason)
             } else {
-                let reply = ''
+                let reply = Strings.TAG_CHANNEL
                 let week = weekOne ? Strings.MATCHES.LITERALS.WEEK_ONE : Strings.MATCHES.LITERALS.WEEK_TWO
-                reply += Strings.TAG_CHANNEL
                 reply += Strings.MATCHES.TEMPLATES.TITLE(standardTitle, week)
                 reply += Strings.MATCHES.LITERALS.FOLLOWUP_THREAD_INFO
                 if (weekOne) {
                     reply += Strings.MATCHES.LITERALS.WEEK_ONE_SIGN_UP
-                    reply += Strings.TEMPLATES.SIGN_UP_REACTIONS(Strings.PAY_IN_EMOJI, Strings.F2P_EMOJI)
+                    reply += Strings.MATCHES.TEMPLATES.DROPS_MESSAGE(Strings.MATCHES.LITERALS.DROP_EMOJI, Strings.MATCHES.LITERALS.ADD_EMOJI)
                 }
                 const initialMessage = await interaction.reply({ content: reply, fetchReply: true })
                 if (weekOne) {
-                    await initialMessage.react(Strings.PAY_IN_EMOJI)
-                    await initialMessage.react(Strings.F2P_EMOJI)
+                    await initialMessage.react(Strings.MATCHES.LITERALS.DROP_EMOJI)
+                    await initialMessage.react(Strings.MATCHES.LITERALS.ADD_EMOJI)
                 }
+
                 const decklistMessage = await interaction.channel.send(Strings.MATCHES.LITERALS.DECKLIST_THREAD_MESSAGE)
                 await decklistMessage.startThread({
                     name: Strings.MATCHES.TEMPLATES.DECKLIST_THREAD_TITLE(standardTitle, week),
                 })
                 await decklistMessage.pin()
-                const matchMessage = await interaction.channel.send(Strings.MATCHES.TEMPLATES.MATHCES_THREAD_MESSAGE(
-                    Strings.MATCHES.LITERALS.TWO_EMOJI,
-                    Strings.MATCHES.LITERALS.ONE_EMOJI,
-                    Strings.MATCHES.LITERALS.ZERO_EMOJI,
-                    Strings.MATCHES.LITERALS.TIE_EMOJI,
-                ))
-                const matchThread = await matchMessage.startThread({
-                    name: Strings.MATCHES.TEMPLATES.MATCHES_THREAD_TITLE(standardTitle, week),
-                })
-                await matchMessage.pin()
-                for (const match of matches) {
-                    // This is the flag to supress notifications
-                    await matchThread.send({ content: match, flags: [4096] })
-                }
+
+                makeMatchesThread(interaction.channel, matches, standardTitle, week)
             }
         },
 };
