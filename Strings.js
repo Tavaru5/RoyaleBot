@@ -27,6 +27,7 @@ module.exports = {
             MATCHES_THREAD_TITLE: (title, week) => `${title} week ${week} matches`,
             DECKLIST_THREAD_TITLE: (title, week) => `${title} week ${week} decklists`,
             PAIRING_MESSAGE: (user1, user2) => `${user1} vs ${user2}`,
+            DROPS_MESSAGE: (drop, add) => `React with ${drop} if you want to drop for week 2 or with ${add} if you want to join (no buy-in).`,
         },
         LITERALS: {
             FOLLOWUP_THREAD_INFO: 'I will post two follow-up threads: one for match pairings and one for decklists. \n',
@@ -38,6 +39,8 @@ module.exports = {
             ONE_EMOJI: '1️⃣',
             ZERO_EMOJI: '0️⃣',
             TIE_EMOJI: '👔',
+            DROP_EMOJI: '💧',
+            ADD_EMOJI: '➕',
         },
     },
 }
