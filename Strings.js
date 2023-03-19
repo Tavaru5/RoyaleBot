@@ -43,4 +43,14 @@ module.exports = {
             ADD_EMOJI: '➕',
         },
     },
+    FINALS: {
+        TEMPLATES: {
+            TITLE: (title) => `Time for the finals for ${title} standard!\n`,
+            TOP_FOUR: (first, second, third, fourth) => `The top four are:\n1. ${first}\n2. ${second}\n3. ${third}\n4. ${fourth}`,
+            PLAYER_RECORD: (player, wins, losses) => `${player} at ${wins}-${losses}`,
+        },
+        LITERALS: {
+            FINALS_INSTRUCTIONS: 'Players will blind select one of their decks played this standard (I haven\'t implemented this yet in the bot), then 1st seed will choose their semifinal opponent after decks are selected',
+        },
+    },
 }

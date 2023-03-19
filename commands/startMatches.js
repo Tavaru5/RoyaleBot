@@ -59,7 +59,7 @@ module.exports = {
             let failureReason = ''
             const weekOne = interaction.options.getBoolean('weekone')
 
-            let botMessages = await getBotMessages(interaction)
+            let botMessages = await getBotMessages(interaction.channel)
             let standardTitle = getStandardTitle(botMessages)
 
             let reactions = await getReactions(botMessages, Strings.TEMPLATES.SIGN_UP_REACTIONS(FORMAT_PLACEHOLDER, FORMAT_PLACEHOLDER))
